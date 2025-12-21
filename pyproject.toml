@@ -6,9 +6,11 @@ include = "\\.(py|pyi)$"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = ["data", "models", "notebooks"]
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "S", "W"]
 ignore = ["S101"]
-extend-exclude = ["data", "models", "notebooks"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true

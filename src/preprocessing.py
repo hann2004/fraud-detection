@@ -4,12 +4,12 @@ This module centralizes the feature engineering and transformation steps that
 were previously implemented in notebooks. Functions are intentionally
 lightweight and composable so they can be reused by scripts or tests.
 """
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Tuple
 
 import numpy as np
 import pandas as pd
@@ -235,7 +235,14 @@ def engineer_creditcard_features(df: pd.DataFrame) -> pd.DataFrame:
         std = data[col].std(ddof=0) or 1.0
         data[f"{col}_zscore"] = (data[col] - data[col].mean()) / std
 
-    anomaly_cols = ["V14_zscore", "V10_zscore", "V12_zscore", "V16_zscore", "V17_zscore", "Amount_zscore"]
+    anomaly_cols = [
+        "V14_zscore",
+        "V10_zscore",
+        "V12_zscore",
+        "V16_zscore",
+        "V17_zscore",
+        "Amount_zscore",
+    ]
     data["combined_anomaly_score"] = data[anomaly_cols].abs().sum(axis=1)
 
     amount_bins = [-np.inf, 10, 50, 150, 500, 1000, 2000, np.inf]
@@ -275,7 +282,9 @@ def transform_creditcard(
         features, target, test_size=test_size, stratify=target, random_state=random_state
     )
 
-    new_features = [col for col in features.columns if not col.startswith("V") and col not in {"Time", "Amount"}]
+    new_features = [
+        col for col in features.columns if not col.startswith("V") and col not in {"Time", "Amount"}
+    ]
     scaler = StandardScaler()
     X_train_scaled = X_train.copy()
     X_test_scaled = X_test.copy()
@@ -298,7 +307,14 @@ def transform_creditcard(
     return SplitArtifacts(train=train_df, test=test_df, scaler=scaler)
 
 
-def save_processed(train: pd.DataFrame, test: pd.DataFrame, output_dir: Path | str, *, train_name: str, test_name: str) -> Tuple[Path, Path]:
+def save_processed(
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    output_dir: Path | str,
+    *,
+    train_name: str,
+    test_name: str,
+) -> tuple[Path, Path]:
     """Persist processed splits to CSV."""
 
     output = Path(output_dir)
