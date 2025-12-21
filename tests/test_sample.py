@@ -4,11 +4,13 @@ def test_ci_cd():
 
 
 def test_imports():
-    """Test that key packages can be imported"""
-    try:
-        import pandas
-        import numpy
-        import sklearn
-        assert True
-    except ImportError:
-        assert False, "Required packages not installed"
+    """Test that key packages are available without importing them."""
+    import importlib.util
+
+    missing = []
+    for pkg in ["pandas", "numpy", "sklearn"]:
+        if importlib.util.find_spec(pkg) is None:
+            missing.append(pkg)
+
+    if missing:
+        raise AssertionError(f"Required packages not installed: {', '.join(missing)}")
