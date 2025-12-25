@@ -28,23 +28,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import (
-    average_precision_score,
-    f1_score,
-    confusion_matrix,
-)
-from sklearn.model_selection import StratifiedKFold, train_test_split, GridSearchCV
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
 from joblib import dump
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import average_precision_score, confusion_matrix, f1_score
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 try:
     from xgboost import XGBClassifier
@@ -58,7 +52,7 @@ DATA_RAW = ROOT / "data" / "raw"
 MODELS_DIR = ROOT / "models"
 
 
-def _load_processed(dataset: str) -> Tuple[pd.DataFrame, pd.DataFrame, str]:
+def _load_processed(dataset: str) -> tuple[pd.DataFrame, pd.DataFrame, str]:
     """Load processed train/test and return target column name."""
     if dataset == "creditcard":
         train_path = DATA_PROCESSED / "creditcard_train_processed.csv"
@@ -79,7 +73,12 @@ def _load_processed(dataset: str) -> Tuple[pd.DataFrame, pd.DataFrame, str]:
     return train, test, target
 
 
-def _load_raw(dataset: str, test_size: float, random_state: int, sample_frac: float) -> Tuple[pd.DataFrame, pd.DataFrame, str]:
+def _load_raw(
+    dataset: str,
+    test_size: float,
+    random_state: int,
+    sample_frac: float,
+) -> tuple[pd.DataFrame, pd.DataFrame, str]:
     """Load raw data and perform stratified split with minimal preprocessing.
     This path is a fallback when processed files are missing."""
     if dataset == "creditcard":
@@ -160,17 +159,27 @@ def build_rf(random_state: int) -> RandomForestClassifier:
     )
 
 
-def evaluate_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_score: np.ndarray) -> Dict[str, float]:
+def evaluate_metrics(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    y_score: np.ndarray,
+) -> dict[str, float]:
     return {
         "auc_pr": float(average_precision_score(y_true, y_score)),
         "f1": float(f1_score(y_true, y_pred)),
     }
 
 
-def run_cv(model, X: pd.DataFrame, y: pd.Series, cv_folds: int, random_state: int) -> Dict[str, Dict[str, float]]:
+def run_cv(
+    model,
+    X: pd.DataFrame,
+    y: pd.Series,
+    cv_folds: int,
+    random_state: int,
+) -> dict[str, dict[str, float]]:
     skf = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
-    aucs: List[float] = []
-    f1s: List[float] = []
+    aucs: list[float] = []
+    f1s: list[float] = []
     for train_idx, test_idx in skf.split(X, y):
         X_train, X_val = X.iloc[train_idx], X.iloc[test_idx]
         y_train, y_val = y.iloc[train_idx], y.iloc[test_idx]
@@ -184,8 +193,14 @@ def run_cv(model, X: pd.DataFrame, y: pd.Series, cv_folds: int, random_state: in
         aucs.append(average_precision_score(y_val, y_proba))
         f1s.append(f1_score(y_val, y_pred))
     return {
-        "auc_pr": {"mean": float(np.mean(aucs)), "std": float(np.std(aucs, ddof=1)) if len(aucs) > 1 else 0.0},
-        "f1": {"mean": float(np.mean(f1s)), "std": float(np.std(f1s, ddof=1)) if len(f1s) > 1 else 0.0},
+        "auc_pr": {
+            "mean": float(np.mean(aucs)),
+            "std": float(np.std(aucs, ddof=1)) if len(aucs) > 1 else 0.0,
+        },
+        "f1": {
+            "mean": float(np.mean(f1s)),
+            "std": float(np.std(f1s, ddof=1)) if len(f1s) > 1 else 0.0,
+        },
     }
 
 
@@ -199,7 +214,13 @@ def tune_ensemble(model_name: str, X_train: pd.DataFrame, y_train: pd.Series, ra
             "max_depth": [3, 5, 7],
             "learning_rate": [0.05, 0.1, 0.2],
         }
-        grid = GridSearchCV(base, param_grid, cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=random_state), scoring="average_precision", n_jobs=-1)
+        grid = GridSearchCV(
+            base,
+            param_grid,
+            cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=random_state),
+            scoring="average_precision",
+            n_jobs=-1,
+        )
         grid.fit(X_train, y_train)
         return grid.best_estimator_, grid.best_params_, float(grid.best_score_)
     elif model_name == "random_forest":
@@ -209,20 +230,30 @@ def tune_ensemble(model_name: str, X_train: pd.DataFrame, y_train: pd.Series, ra
             "max_depth": [None, 10, 20],
             "max_features": ["sqrt", "log2", 0.8],
         }
-        grid = GridSearchCV(base, param_grid, cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=random_state), scoring="average_precision", n_jobs=-1)
+        grid = GridSearchCV(
+            base,
+            param_grid,
+            cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=random_state),
+            scoring="average_precision",
+            n_jobs=-1,
+        )
         grid.fit(X_train, y_train)
         return grid.best_estimator_, grid.best_params_, float(grid.best_score_)
     else:
         raise ValueError("Unsupported ensemble model")
 
 
-def confusion(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, int]:
+def confusion(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, int]:
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
     return {"tn": int(tn), "fp": int(fp), "fn": int(fn), "tp": int(tp)}
 
 
-def select_best(baseline_cv: Dict[str, Dict[str, float]], ensemble_cv: Dict[str, Dict[str, float]], interpretability_priority: bool = True) -> str:
-    # Prefer ensemble if it significantly outperforms baseline on AUC-PR; otherwise LR for interpretability
+def select_best(
+    baseline_cv: dict[str, dict[str, float]],
+    ensemble_cv: dict[str, dict[str, float]],
+    interpretability_priority: bool = True,
+) -> str:
+    # Prefer ensemble if AUC-PR improves by >2 points; otherwise LR for interpretability
     base_auc = baseline_cv["auc_pr"]["mean"]
     ens_auc = ensemble_cv["auc_pr"]["mean"]
     improvement = ens_auc - base_auc
@@ -233,7 +264,11 @@ def select_best(baseline_cv: Dict[str, Dict[str, float]], ensemble_cv: Dict[str,
 
 def main():
     parser = argparse.ArgumentParser(description="Fraud detection modeling")
-    parser.add_argument("--dataset", choices=["creditcard", "ecommerce", "fraud_data"], required=True)
+    parser.add_argument(
+        "--dataset",
+        choices=["creditcard", "ecommerce", "fraud_data"],
+        required=True,
+    )
     parser.add_argument("--test-size", type=float, default=0.2)
     parser.add_argument("--random-state", type=int, default=42)
     parser.add_argument("--ensemble", choices=["xgboost", "random_forest"], default="xgboost")
@@ -249,12 +284,21 @@ def main():
         train_df, test_df, target = _load_processed(args.dataset)
     except FileNotFoundError:
         print("Processed files missing; falling back to raw with minimal preprocessing.")
-        train_df, test_df, target = _load_raw(args.dataset, args.test_size, args.random_state, args.sample_frac)
+        train_df, test_df, target = _load_raw(
+            args.dataset,
+            args.test_size,
+            args.random_state,
+            args.sample_frac,
+        )
 
     # Optional sampling for speed
     if args.sample_frac and 0.0 < args.sample_frac < 1.0:
         train_df = train_df.sample(frac=args.sample_frac, random_state=args.random_state)
-        test_df = test_df.sample(frac=min(args.sample_frac * 2, 1.0), random_state=args.random_state)  # keep a bit more for test
+        # keep a bit more for test
+        test_df = test_df.sample(
+            frac=min(args.sample_frac * 2, 1.0),
+            random_state=args.random_state,
+        )
 
     X_train = train_df.drop(columns=[target])
     y_train = train_df[target].astype(int)
@@ -268,14 +312,25 @@ def main():
     lr_pred = (lr_proba >= 0.5).astype(int)
     lr_test_metrics = evaluate_metrics(y_test.values, lr_pred, lr_proba)
     lr_conf = confusion(y_test.values, lr_pred)
-    lr_cv = run_cv(build_logreg(args.random_state), X_train, y_train, args.cv_folds, args.random_state)
+    lr_cv = run_cv(
+        build_logreg(args.random_state),
+        X_train,
+        y_train,
+        args.cv_folds,
+        args.random_state,
+    )
 
     # Ensemble: XGBoost or RandomForest, with basic tuning
     if args.ensemble == "xgboost":
         if not HAS_XGB:
             print("xgboost not installed; switching to random_forest.")
             args.ensemble = "random_forest"
-    tuned_model, best_params, best_cv_score = tune_ensemble(args.ensemble, X_train, y_train, args.random_state)
+    tuned_model, best_params, best_cv_score = tune_ensemble(
+        args.ensemble,
+        X_train,
+        y_train,
+        args.random_state,
+    )
     tuned_model.fit(X_train, y_train)
     ens_proba = tuned_model.predict_proba(X_test)[:, 1]
     ens_pred = (ens_proba >= 0.5).astype(int)
@@ -283,9 +338,21 @@ def main():
     ens_conf = confusion(y_test.values, ens_pred)
     # CV for the tuned model (retrain per fold)
     if args.ensemble == "xgboost":
-        ens_cv = run_cv(build_xgb(args.random_state, _scale_pos_weight(y_train)), X_train, y_train, args.cv_folds, args.random_state)
+        ens_cv = run_cv(
+            build_xgb(args.random_state, _scale_pos_weight(y_train)),
+            X_train,
+            y_train,
+            args.cv_folds,
+            args.random_state,
+        )
     else:
-        ens_cv = run_cv(build_rf(args.random_state), X_train, y_train, args.cv_folds, args.random_state)
+        ens_cv = run_cv(
+            build_rf(args.random_state),
+            X_train,
+            y_train,
+            args.cv_folds,
+            args.random_state,
+        )
 
     # Compare and select best
     choice = select_best(lr_cv, ens_cv, interpretability_priority=True)
@@ -312,7 +379,10 @@ def main():
             "justification": (
                 "Selected ensemble due to >2 point AUC-PR improvement over baseline"
                 if best_model_name != "baseline"
-                else "Selected logistic regression for interpretability; ensemble improvement < 2 points"
+                else (
+                    "Selected logistic regression for interpretability; "
+                    "ensemble improvement < 2 points"
+                )
             ),
         },
     }
