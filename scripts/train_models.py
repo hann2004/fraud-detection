@@ -42,6 +42,7 @@ from sklearn.preprocessing import StandardScaler
 
 try:
     from xgboost import XGBClassifier
+
     HAS_XGB = True
 except Exception:
     HAS_XGB = False
@@ -399,13 +400,18 @@ def main():
 
     # Friendly print
     print("\nModeling complete. Summary:")
-    print(json.dumps({
-        "baseline_auc_pr": results["baseline"]["cv"]["auc_pr"]["mean"],
-        "ensemble_auc_pr": results["ensemble"]["cv"]["auc_pr"]["mean"],
-        "baseline_f1": results["baseline"]["cv"]["f1"]["mean"],
-        "ensemble_f1": results["ensemble"]["cv"]["f1"]["mean"],
-        "selected": results["selection"]["best"],
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "baseline_auc_pr": results["baseline"]["cv"]["auc_pr"]["mean"],
+                "ensemble_auc_pr": results["ensemble"]["cv"]["auc_pr"]["mean"],
+                "baseline_f1": results["baseline"]["cv"]["f1"]["mean"],
+                "ensemble_f1": results["ensemble"]["cv"]["f1"]["mean"],
+                "selected": results["selection"]["best"],
+            },
+            indent=2,
+        )
+    )
     print(f"Artifacts saved to: {out_dir}")
 
 
