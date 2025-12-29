@@ -118,3 +118,38 @@ Ecommerce:
 - CV AUC-PR: baseline ≈ 0.948, ensemble ≈ 0.968
 - CV F1: baseline ≈ 0.926, ensemble ≈ 0.945
 - Selected: Logistic Regression (interpretability; improvement < 2 points)
+
+## Task 3 — Model Explainability
+
+This task explains the selected best models using SHAP and saves report artifacts for both datasets.
+
+- Credit Card: XGBoost explained via SHAP `TreeExplainer`.
+- E-commerce: Logistic Regression explained via SHAP `Explainer` (linear) with kernel fallback when needed.
+
+### Run the Explainability Notebook
+
+- Open and run: [notebooks/shap-explainability.ipynb](notebooks/shap-explainability.ipynb).
+- Execute cells sequentially in each dataset section:
+	- Baseline importance:
+		- Credit Card: model `feature_importances_` or booster gain.
+		- E-commerce: absolute coefficients (`|coef|`).
+	- SHAP global summary: beeswarm plot + mean absolute SHAP per feature.
+	- Individual explanations: TP/FP/FN cases with SHAP waterfalls (force plot fallback if available).
+	- Importance comparison: side-by-side chart baseline vs. SHAP.
+
+### Artifacts
+
+Artifacts are saved in `reports/` with timestamped names:
+- Global SHAP beeswarm PNGs (each dataset)
+- Baseline importance PNGs (each dataset)
+- TP/FP/FN individual explanation PNGs (each dataset)
+- Top drivers CSVs (mean |SHAP|)
+- Importance comparison PNG + CSV (each dataset)
+
+Re-run the notebook to regenerate; files are not overwritten thanks to timestamps.
+
+### Notes
+
+- Features are coerced to numeric and `NaN`s handled to avoid SHAP dtype errors.
+- LR section uses kernel SHAP fallback if the fast explainer fails.
+- Ensure models exist in [models/](models/) and processed test splits in [data/processed/](data/processed/).
