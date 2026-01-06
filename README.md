@@ -1,4 +1,4 @@
-# Fraud Detection – Tasks 1 & 2
+# Fraud Detection 
 
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
 ![Jupyter](https://img.shields.io/badge/Jupyter-Notebooks-F37626?logo=jupyter&logoColor=white)
